@@ -1,0 +1,21 @@
+version: '3.8'
+services:
+  backend:
+    build: ./backend/todoapp  # Added /todoapp here
+    ports:
+      - "8081:8081"
+    networks:
+      - app-network
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
