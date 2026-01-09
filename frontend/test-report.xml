@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testExecutions version="1">
+  <file path="C:\Users\AbhishekChauhan\Desktop\Project\todo-fullstack-app\frontend\src\App.test.js">
+    <testCase name="App Component renders todo application title" duration="53"/>
+    <testCase name="App Component renders add todo form" duration="7"/>
+    <testCase name="App Component adds a new todo" duration="16"/>
+    <testCase name="App Component displays no todos message when list is empty" duration="68"/>
+    <testCase name="App Component displays todos when data is fetched" duration="12"/>
+  </file>
+</testExecutions>
