@@ -16,7 +16,7 @@ pipeline {
         IMAGE_TAG = "${BUILD_NUMBER}"
         
         // SonarQube
-        SONAR_HOST_URL = 'http://host.docker.internal:9000'
+        SONAR_HOST_URL = 'http://172.25.240.1:9000'
         SONAR_TOKEN = credentials('sonarqube-token')
         
         // Quality Gates
