@@ -1,0 +1,4 @@
+GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
+todoapp,com.example.todoapp.model,Todo,151,31,34,0,0,5,21,9,4,9
+todoapp,com.example.todoapp,TodoappApplication,5,3,0,0,2,1,1,1,1,1
+todoapp,com.example.todoapp.controller,TodoController,0,43,0,0,0,10,0,5,0,5

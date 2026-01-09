@@ -1,1 +1,3 @@
 com\example\todoapp\TodoappApplicationTests.class
+com\example\todoapp\TodoControllerTest.class
+com\example\todoapp\TodoRepositoryTest.class
