@@ -2,9 +2,12 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches:
+      - main
+      - develop
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
 
 env:
   DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -12,8 +15,6 @@ env:
   FRONTEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/todo-frontend
 
 jobs:
-  
-  # ==================== BACKEND TESTING ====================
   backend-test:
     name: Backend Tests & Coverage
     runs-on: ubuntu-latest
@@ -50,7 +51,6 @@ jobs:
           name: backend-coverage
           path: backend/todoapp/target/site/jacoco/
 
-  # ==================== FRONTEND TESTING ====================
   frontend-test:
     name: Frontend Tests
     runs-on: ubuntu-latest
@@ -68,7 +68,7 @@ jobs:
           
       - name: 📥 Install Dependencies
         working-directory: ./frontend
-        run: npm ci
+        run: npm install
         
       - name: 🧪 Run Frontend Tests
         working-directory: ./frontend
@@ -82,7 +82,6 @@ jobs:
           name: frontend-coverage
           path: frontend/coverage/
 
-  # ==================== BUILD APPLICATIONS ====================
   build-apps:
     name: Build Backend & Frontend
     runs-on: ubuntu-latest
@@ -112,7 +111,7 @@ jobs:
           
       - name: 📥 Install Frontend Dependencies
         working-directory: ./frontend
-        run: npm ci
+        run: npm install
         
       - name: 🏗️ Build Frontend
         working-directory: ./frontend
@@ -130,7 +129,6 @@ jobs:
           name: frontend-build
           path: frontend/build/
 
-  # ==================== DOCKER BUILD & PUSH ====================
   docker-build-push:
     name: Build & Push Docker Images
     runs-on: ubuntu-latest
@@ -178,7 +176,6 @@ jobs:
           echo "Backend: ${{ env.BACKEND_IMAGE }}:${{ github.run_number }}"
           echo "Frontend: ${{ env.FRONTEND_IMAGE }}:${{ github.run_number }}"
 
-  # ==================== DEPLOYMENT SUMMARY ====================
   deployment-summary:
     name: Deployment Summary
     runs-on: ubuntu-latest
