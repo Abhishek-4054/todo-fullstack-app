@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: abhishekc4054/todo-backend:33
+        image: abhishekc4054/todo-backend:34
         ports:
         - containerPort: 8080
         env:
