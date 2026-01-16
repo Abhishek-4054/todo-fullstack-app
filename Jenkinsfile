@@ -59,6 +59,9 @@ pipeline {
             steps {
                 dir('frontend') {
                     bat '''
+                        npm cache clean --force
+                        rmdir /s /q node_modules 2>nul || echo "node_modules not found"
+                        del package-lock.json 2>nul || echo "package-lock.json not found"
                         npm install
                         npm run test:ci || echo "Frontend tests skipped"
                     '''
@@ -119,7 +122,11 @@ pipeline {
         stage('Build Frontend') {
             steps {
                 dir('frontend') {
-                    bat 'npm run build'
+                    bat '''
+                        set CI=false
+                        set NODE_OPTIONS=--openssl-legacy-provider
+                        npm run build
+                    '''
                 }
             }
         }
