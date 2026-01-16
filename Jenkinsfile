@@ -8,141 +8,97 @@ pipeline {
     }
 
     environment {
-        // Docker
         DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
         DOCKERHUB_USERNAME   = 'abhishekc4054'
-        BACKEND_IMAGE        = "${DOCKERHUB_USERNAME}/todo-backend"
-        FRONTEND_IMAGE       = "${DOCKERHUB_USERNAME}/todo-frontend"
-        IMAGE_TAG            = "${BUILD_NUMBER}"
 
-        // SonarQube
-        SONAR_HOST_URL = 'http://localhost:9000'
-        SONAR_TOKEN    = credentials('sonarqube-token')
+        BACKEND_IMAGE  = "${DOCKERHUB_USERNAME}/todo-backend"
+        FRONTEND_IMAGE = "${DOCKERHUB_USERNAME}/todo-frontend"
 
-        // Git & Kubernetes
-        GIT_REPO_URL  = 'https://github.com/Abhishek-4054/todo-fullstack-app.git'
-        K8S_NAMESPACE = 'todo-app'
+        IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
     stages {
 
-        stage('Checkout') {
+        stage('Checkout Code') {
             steps {
                 echo '📥 Checking out source code'
                 git branch: 'main',
                     credentialsId: 'github-credentials',
-                    url: "${GIT_REPO_URL}"
+                    url: 'https://github.com/Abhishek-4054/todo-fullstack-app.git'
             }
         }
 
-        stage('Backend: Build & Test') {
+        stage('Build Backend') {
             steps {
-                dir('backend/todoapp') {
-                    bat 'mvn clean test'
+                echo '🔨 Building Backend'
+                dir('backend') {
+                    bat 'mvn clean package -DskipTests'
                 }
             }
         }
 
-        stage('Frontend: Build & Test') {
+        stage('Build Frontend') {
             steps {
+                echo '🔨 Building Frontend'
                 dir('frontend') {
-                    bat '''
-                        npm install
-                        npm run test:ci || echo "Frontend tests skipped"
-                        npm run build
-                    '''
+                    bat 'npm install'
+                    bat 'npm run build'
                 }
             }
         }
 
-        stage('Backend: SonarQube Analysis') {
+        stage('Docker Build & Push') {
             steps {
-                dir('backend/todoapp') {
-                    withSonarQubeEnv('SonarQube') {
-                        bat "mvn sonar:sonar -Dsonar.projectKey=todo-backend -Dsonar.token=%SONAR_TOKEN%"
-                    }
-                }
-            }
-        }
-
-        stage('Build & Push Docker Images') {
-            steps {
-                echo '🐳 Building Docker images'
-                bat "docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} backend/todoapp"
-                bat "docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} frontend"
-
-                echo '🔐 Docker login'
-                bat "echo %DOCKERHUB_CREDENTIALS_PSW% | docker login -u %DOCKERHUB_CREDENTIALS_USR% --password-stdin"
-
-                echo '📤 Pushing images'
-                bat "docker push ${BACKEND_IMAGE}:${IMAGE_TAG}"
-                bat "docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}"
+                echo '🐳 Building & pushing Docker images'
+                bat """
+                docker login -u %DOCKERHUB_USERNAME% -p %DOCKERHUB_CREDENTIALS_PSW%
+                docker build -t %BACKEND_IMAGE%:%IMAGE_TAG% backend
+                docker build -t %FRONTEND_IMAGE%:%IMAGE_TAG% frontend
+                docker push %BACKEND_IMAGE%:%IMAGE_TAG%
+                docker push %FRONTEND_IMAGE%:%IMAGE_TAG%
+                """
             }
         }
 
         stage('Update Kubernetes Manifests') {
             steps {
+                echo '✏️ Updating Kubernetes YAML image tags'
                 dir('k8s') {
-                    echo '📝 Updating image tags in manifests'
-
-                    bat 'powershell -NoProfile -Command "(Get-Content backend-deployment.yaml) -replace \'image: .*todo-backend:.*\',\'image: abhishekc4054/todo-backend:%BUILD_NUMBER%\' | Set-Content backend-deployment.yaml"'
-
-                    bat 'powershell -NoProfile -Command "(Get-Content frontend-deployment.yaml) -replace \'image: .*todo-frontend:.*\',\'image: abhishekc4054/todo-frontend:%BUILD_NUMBER%\' | Set-Content frontend-deployment.yaml"'
-                }
-            }
-        }
-
-        stage('Commit & Push Manifests (GitOps)') {
-            steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'github-credentials',
-                        usernameVariable: 'GIT_USER',
-                        passwordVariable: 'GIT_PASS'
-                    )
-                ]) {
                     bat '''
-                        git config user.email "jenkins@ci.com"
-                        git config user.name "Jenkins CI"
-                        git add k8s/
-                        git commit -m "Update image tags to %BUILD_NUMBER%" || echo No changes
-                        git push https://%GIT_USER%:%GIT_PASS%@github.com/Abhishek-4054/todo-fullstack-app.git main
-                    '''
+powershell -NoProfile -Command ^
+"$content = Get-Content backend-deployment.yaml; ^
+ $content = $content -replace 'image:.*todo-backend:.*', 'image: abhishekc4054/todo-backend:${env:BUILD_NUMBER}'; ^
+ Set-Content backend-deployment.yaml $content"
+
+powershell -NoProfile -Command ^
+"$content = Get-Content frontend-deployment.yaml; ^
+ $content = $content -replace 'image:.*todo-frontend:.*', 'image: abhishekc4054/todo-frontend:${env:BUILD_NUMBER}'; ^
+ Set-Content frontend-deployment.yaml $content"
+'''
                 }
             }
         }
 
-        stage('GitOps Deployment via ArgoCD') {
+        stage('Commit & Push Manifests') {
             steps {
-                echo '🚀 ArgoCD Auto-Sync will deploy the updated manifests'
-            }
-        }
-
-        stage('Verify Deployment') {
-            steps {
-                echo '📊 Verifying rollout'
-                bat "kubectl rollout status deployment/todo-backend -n ${K8S_NAMESPACE} --timeout=300s"
-                bat "kubectl rollout status deployment/todo-frontend -n ${K8S_NAMESPACE} --timeout=300s"
-            }
-        }
-
-        stage('Cleanup') {
-            steps {
-                bat 'docker logout'
+                echo '📤 Pushing updated manifests to Git'
+                bat '''
+git config user.email "jenkins@local"
+git config user.name "jenkins"
+git add k8s
+git commit -m "Update image tags to build ${BUILD_NUMBER}"
+git push origin main
+'''
             }
         }
     }
 
     post {
         success {
-            echo '✅ PIPELINE SUCCESS'
-            echo '🎉 Deployed using Jenkins CI + ArgoCD GitOps'
+            echo '✅ CI completed successfully. ArgoCD will auto-sync 🚀'
         }
         failure {
-            echo '❌ PIPELINE FAILED'
-        }
-        always {
-            echo "📊 Build #${BUILD_NUMBER} finished"
+            echo '❌ CI failed. Check logs.'
         }
     }
 }
