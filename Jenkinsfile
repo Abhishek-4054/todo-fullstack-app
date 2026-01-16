@@ -15,9 +15,15 @@ pipeline {
         FRONTEND_IMAGE = "${DOCKERHUB_USERNAME}/todo-frontend"
         IMAGE_TAG = "${BUILD_NUMBER}"
 
-        // SonarQube (FIXED)
+        // SonarQube
         SONAR_HOST_URL = 'http://localhost:9000'
         SONAR_TOKEN = credentials('sonarqube-token')
+
+        // Kubernetes & ArgoCD
+        K8S_NAMESPACE = 'todo-app'
+        ARGOCD_SERVER = 'localhost:8081'  // ArgoCD on port 8081
+        ARGOCD_APP_NAME = 'todo-fullstack-app'
+        GIT_REPO_URL = 'https://github.com/Abhishek-4054/todo-fullstack-app.git'
     }
 
     stages {
@@ -27,7 +33,7 @@ pipeline {
                 echo '📥 Checkout source code'
                 git branch: 'main',
                     credentialsId: 'github-credentials',
-                    url: 'https://github.com/Abhishek-4054/todo-fullstack-app.git'
+                    url: "${GIT_REPO_URL}"
             }
         }
 
@@ -138,6 +144,62 @@ pipeline {
             }
         }
 
+        stage('Update K8s Manifests') {
+            steps {
+                script {
+                    dir('k8s') {
+                        bat """
+                            powershell -Command "(Get-Content backend-deployment.yaml) -replace 'image: ${BACKEND_IMAGE}:.*', 'image: ${BACKEND_IMAGE}:${IMAGE_TAG}' | Set-Content backend-deployment.yaml"
+                            powershell -Command "(Get-Content frontend-deployment.yaml) -replace 'image: ${FRONTEND_IMAGE}:.*', 'image: ${FRONTEND_IMAGE}:${IMAGE_TAG}' | Set-Content frontend-deployment.yaml"
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Commit & Push K8s Manifests') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'github-credentials', 
+                                                  usernameVariable: 'GIT_USER', 
+                                                  passwordVariable: 'GIT_PASS')]) {
+                    bat """
+                        git config user.email "jenkins@ci.com"
+                        git config user.name "Jenkins CI"
+                        git add k8s/
+                        git commit -m "Update image tags to ${IMAGE_TAG}" || echo "No changes to commit"
+                        git push https://%GIT_USER%:%GIT_PASS%@github.com/Abhishek-4054/todo-fullstack-app.git main || echo "Push failed or no changes"
+                    """
+                }
+            }
+        }
+
+        stage('Sync ArgoCD Application') {
+            steps {
+                withCredentials([string(credentialsId: 'argocd-token', variable: 'ARGOCD_TOKEN')]) {
+                    bat """
+                        argocd app sync ${ARGOCD_APP_NAME} ^
+                        --server ${ARGOCD_SERVER} ^
+                        --auth-token %ARGOCD_TOKEN% ^
+                        --insecure
+                    """
+                }
+            }
+        }
+
+        stage('Wait for Deployment') {
+            steps {
+                withCredentials([string(credentialsId: 'argocd-token', variable: 'ARGOCD_TOKEN')]) {
+                    bat """
+                        argocd app wait ${ARGOCD_APP_NAME} ^
+                        --server ${ARGOCD_SERVER} ^
+                        --auth-token %ARGOCD_TOKEN% ^
+                        --insecure ^
+                        --timeout 300
+                    """
+                }
+            }
+        }
+
         stage('Cleanup') {
             steps {
                 bat "docker logout"
@@ -147,7 +209,11 @@ pipeline {
 
     post {
         success {
-            echo '✅ PIPELINE SUCCESS'
+            echo '✅ PIPELINE SUCCESS - Application deployed to Kubernetes via ArgoCD'
+            echo "🚀 Access your app:"
+            echo "   Frontend: http://localhost:30080"
+            echo "   Backend: http://localhost:30081"
+            echo "   ArgoCD UI: http://localhost:8081"
         }
         failure {
             echo '❌ PIPELINE FAILED'
