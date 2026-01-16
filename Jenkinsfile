@@ -21,7 +21,7 @@ pipeline {
 
         // Kubernetes & ArgoCD
         K8S_NAMESPACE = 'todo-app'
-        ARGOCD_SERVER = 'localhost:8081'  // ArgoCD on port 8081
+        ARGOCD_SERVER = 'localhost:8081'
         ARGOCD_APP_NAME = 'todo-fullstack-app'
         GIT_REPO_URL = 'https://github.com/Abhishek-4054/todo-fullstack-app.git'
     }
@@ -30,15 +30,17 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                echo '📥 Checkout source code'
+                echo '📥 Checking out source code...'
                 git branch: 'main',
                     credentialsId: 'github-credentials',
                     url: "${GIT_REPO_URL}"
+                echo '✅ Code checked out successfully'
             }
         }
 
         stage('Backend: Tests & Coverage') {
             steps {
+                echo '🧪 Running backend tests...'
                 dir('backend/todoapp') {
                     bat 'mvn clean test'
                 }
@@ -57,6 +59,7 @@ pipeline {
 
         stage('Frontend: Tests') {
             steps {
+                echo '🧪 Running frontend tests...'
                 dir('frontend') {
                     bat '''
                         npm cache clean --force
@@ -71,6 +74,7 @@ pipeline {
 
         stage('Backend: SonarQube Analysis') {
             steps {
+                echo '📊 Running backend code quality analysis...'
                 dir('backend/todoapp') {
                     withSonarQubeEnv('SonarQube') {
                         bat """
@@ -89,6 +93,7 @@ pipeline {
 
         stage('Frontend: SonarQube Analysis') {
             steps {
+                echo '📊 Running frontend code quality analysis...'
                 dir('frontend') {
                     bat """
                         npx sonar-scanner ^
@@ -105,6 +110,7 @@ pipeline {
 
         stage('Quality Gate') {
             steps {
+                echo '🚦 Checking quality gate...'
                 timeout(time: 5, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: false
                 }
@@ -113,14 +119,17 @@ pipeline {
 
         stage('Build Backend') {
             steps {
+                echo '🔨 Building backend application...'
                 dir('backend/todoapp') {
                     bat 'mvn clean package -DskipTests'
                 }
+                echo '✅ Backend build completed'
             }
         }
 
         stage('Build Frontend') {
             steps {
+                echo '🔨 Building frontend application...'
                 dir('frontend') {
                     bat '''
                         set CI=false
@@ -128,18 +137,22 @@ pipeline {
                         npm run build
                     '''
                 }
+                echo '✅ Frontend build completed'
             }
         }
 
         stage('Build Docker Images') {
             steps {
+                echo '🐳 Building Docker images...'
                 bat "docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} -t ${BACKEND_IMAGE}:latest backend/todoapp"
                 bat "docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} -t ${FRONTEND_IMAGE}:latest frontend"
+                echo '✅ Docker images built successfully'
             }
         }
 
         stage('Push Docker Images') {
             steps {
+                echo '📤 Pushing Docker images to DockerHub...'
                 bat """
                     echo %DOCKERHUB_CREDENTIALS_PSW% | docker login ^
                     -u %DOCKERHUB_CREDENTIALS_USR% --password-stdin
@@ -148,11 +161,13 @@ pipeline {
                 bat "docker push ${BACKEND_IMAGE}:latest"
                 bat "docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}"
                 bat "docker push ${FRONTEND_IMAGE}:latest"
+                echo '✅ Docker images pushed successfully'
             }
         }
 
         stage('Update K8s Manifests') {
             steps {
+                echo '📝 Updating Kubernetes manifests...'
                 script {
                     dir('k8s') {
                         bat """
@@ -161,11 +176,13 @@ pipeline {
                         """
                     }
                 }
+                echo '✅ Kubernetes manifests updated'
             }
         }
 
         stage('Commit & Push K8s Manifests') {
             steps {
+                echo '🔄 Committing updated manifests to Git...'
                 withCredentials([usernamePassword(credentialsId: 'github-credentials', 
                                                   usernameVariable: 'GIT_USER', 
                                                   passwordVariable: 'GIT_PASS')]) {
@@ -177,50 +194,72 @@ pipeline {
                         git push https://%GIT_USER%:%GIT_PASS%@github.com/Abhishek-4054/todo-fullstack-app.git main || echo "Push failed or no changes"
                     """
                 }
-                echo "✅ K8s manifests updated in Git"
-                echo "🔄 ArgoCD will auto-sync the changes"
+                echo '✅ K8s manifests pushed to Git'
+                echo '🔄 ArgoCD will automatically sync the changes...'
             }
         }
 
         stage('Verify Deployment Status') {
             steps {
                 script {
-                    echo "⏳ Waiting 30 seconds for ArgoCD to detect changes..."
+                    echo '⏳ Waiting for ArgoCD to detect and sync changes...'
+                    echo 'ℹ️  ArgoCD polls Git every 3 minutes by default'
+                    echo 'ℹ️  You can manually sync from ArgoCD UI: http://localhost:8081'
+                    
                     sleep(time: 30, unit: 'SECONDS')
                     
-                    echo "📊 Checking Kubernetes deployment status..."
+                    echo '📊 Checking Kubernetes deployment status...'
                     bat """
-                        kubectl rollout status deployment/todo-backend -n todo-app --timeout=300s || echo "Backend deployment check failed"
-                        kubectl rollout status deployment/todo-frontend -n todo-app --timeout=300s || echo "Frontend deployment check failed"
+                        kubectl get deployments -n todo-app
                         kubectl get pods -n todo-app
+                        kubectl rollout status deployment/todo-backend -n todo-app --timeout=300s || echo "⚠️  Backend deployment status check timed out"
+                        kubectl rollout status deployment/todo-frontend -n todo-app --timeout=300s || echo "⚠️  Frontend deployment status check timed out"
                     """
                     
-                    echo "✅ Deployment verification completed"
-                    echo "🌐 Access your application:"
-                    echo "   Frontend: http://localhost:30080"
-                    echo "   Backend: http://localhost:30081"
-                    echo "   ArgoCD: http://localhost:8081"
+                    echo '✅ Deployment verification completed'
                 }
             }
         }
 
         stage('Cleanup') {
             steps {
+                echo '🧹 Cleaning up...'
                 bat "docker logout"
+                echo '✅ Cleanup completed'
             }
         }
     }
 
     post {
         success {
-            echo '✅ PIPELINE SUCCESS - Application deployed to Kubernetes via ArgoCD'
-            echo "🚀 Access your app:"
-            echo "   Frontend: http://localhost:30080"
-            echo "   Backend: http://localhost:30081"
-            echo "   ArgoCD UI: http://localhost:8081"
+            echo '✅✅✅ PIPELINE SUCCESS ✅✅✅'
+            echo ''
+            echo '🎉 Application deployed successfully!'
+            echo ''
+            echo '🌐 Access URLs:'
+            echo '   📱 Frontend App:  http://localhost:30080'
+            echo '   🔧 Backend API:   http://localhost:30081'
+            echo '   🚀 ArgoCD UI:     http://localhost:8081'
+            echo ''
+            echo '📦 Docker Images:'
+            echo "   Backend:  ${BACKEND_IMAGE}:${IMAGE_TAG}"
+            echo "   Frontend: ${FRONTEND_IMAGE}:${IMAGE_TAG}"
+            echo ''
+            echo '💡 Tip: Check ArgoCD UI for sync status'
         }
         failure {
-            echo '❌ PIPELINE FAILED'
+            echo '❌❌❌ PIPELINE FAILED ❌❌❌'
+            echo ''
+            echo '🔍 Troubleshooting steps:'
+            echo '   1. Check Jenkins console output for errors'
+            echo '   2. Review SonarQube quality gate results'
+            echo '   3. Verify Docker images were built correctly'
+            echo '   4. Check Kubernetes cluster status: kubectl get pods -n todo-app'
+            echo '   5. Review ArgoCD sync status: http://localhost:8081'
+        }
+        always {
+            echo ''
+            echo "📊 Build #${BUILD_NUMBER} completed at ${new Date()}"
         }
     }
 }
