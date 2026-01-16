@@ -39,10 +39,21 @@ pipeline {
                     credentialsId: 'github-credentials',
                     url: "${GIT_REPO_URL}"
                 
-                // Debug: Show directory structure
-                bat 'dir'
-                bat 'dir backend'
-                bat 'if exist backend\\todoapp (echo todoapp folder EXISTS) else (echo todoapp folder NOT FOUND)'
+                // Verify folder structure
+                echo '📁 Verifying project structure...'
+                bat '''
+                    echo Checking folders...
+                    if exist backend\\todoapp\\pom.xml (
+                        echo ✅ Backend POM found at: backend\\todoapp\\pom.xml
+                    ) else (
+                        echo ❌ Backend POM NOT FOUND!
+                    )
+                    if exist frontend\\package.json (
+                        echo ✅ Frontend package.json found
+                    ) else (
+                        echo ❌ Frontend package.json NOT FOUND!
+                    )
+                '''
             }
         }
 
@@ -55,11 +66,11 @@ pipeline {
             }
             post {
                 always {
-                    junit '**/target/surefire-reports/*.xml'
+                    junit 'backend/todoapp/target/surefire-reports/*.xml'
                     jacoco(
-                        execPattern: '**/target/jacoco.exec',
-                        classPattern: '**/target/classes',
-                        sourcePattern: '**/src/main/java'
+                        execPattern: 'backend/todoapp/target/jacoco.exec',
+                        classPattern: 'backend/todoapp/target/classes',
+                        sourcePattern: 'backend/todoapp/src/main/java'
                     )
                 }
             }
@@ -125,19 +136,8 @@ pipeline {
         stage('Build Backend Artifact') {
             steps {
                 echo '🔨 Building Backend JAR'
-                script {
-                    // Check if pom.xml exists
-                    if (fileExists('backend/todoapp/pom.xml')) {
-                        dir('backend/todoapp') {
-                            bat 'mvn clean package -DskipTests'
-                        }
-                    } else if (fileExists('backend/pom.xml')) {
-                        dir('backend') {
-                            bat 'mvn clean package -DskipTests'
-                        }
-                    } else {
-                        error 'POM.xml not found in backend directory!'
-                    }
+                dir('backend/todoapp') {
+                    bat 'mvn clean package -DskipTests'
                 }
             }
         }
