@@ -25,12 +25,11 @@ pipeline {
         ARGOCD_APP_NAME = 'todo-fullstack-app'
         GIT_REPO_URL = 'https://github.com/Abhishek-4054/todo-fullstack-app.git'
 
-        // ArgoCD CLI path
-        ARGOCD_BIN_DIR = 'C:\\tools\\argocd'
+        // Direct path to the renamed .exe file
+        ARGOCD_PATH = 'C:\\tools\\argocd\\argocd.exe'
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 echo '📥 Checking out source code...'
@@ -101,7 +100,6 @@ pipeline {
         stage('Update K8s Manifests') {
             steps {
                 dir('k8s') {
-                    // Removed PowerShell backticks to prevent Batch parser errors
                     bat """
                         powershell -Command "(Get-Content backend-deployment.yaml) -replace 'image: ${BACKEND_IMAGE}:.*', 'image: ${BACKEND_IMAGE}:${IMAGE_TAG}' | Set-Content backend-deployment.yaml"
                         powershell -Command "(Get-Content frontend-deployment.yaml) -replace 'image: ${FRONTEND_IMAGE}:.*', 'image: ${FRONTEND_IMAGE}:${IMAGE_TAG}' | Set-Content frontend-deployment.yaml"
@@ -114,8 +112,8 @@ pipeline {
             steps {
                 withCredentials([
                     usernamePassword(
-                        credentialsId: 'github-credentials',
-                        usernameVariable: 'GIT_USER',
+                        credentialsId: 'github-credentials', 
+                        usernameVariable: 'GIT_USER', 
                         passwordVariable: 'GIT_PASS'
                     )
                 ]) {
@@ -135,13 +133,12 @@ pipeline {
                 echo '🚀 Logging into ArgoCD and syncing application...'
                 withCredentials([string(credentialsId: 'argocd-token', variable: 'ARGOCD_TOKEN')]) {
                     bat """
-                        set PATH=%PATH%;${ARGOCD_BIN_DIR}
-
-                        argocd login ${ARGOCD_SERVER} ^
+                        @echo off
+                        "%ARGOCD_PATH%" login ${ARGOCD_SERVER} ^
                           --auth-token %ARGOCD_TOKEN% ^
                           --insecure
 
-                        argocd app sync ${ARGOCD_APP_NAME} --insecure
+                        "%ARGOCD_PATH%" app sync ${ARGOCD_APP_NAME} --insecure
                     """
                 }
             }
