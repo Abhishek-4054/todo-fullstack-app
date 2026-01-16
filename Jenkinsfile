@@ -60,9 +60,7 @@ pipeline {
         stage('Backend: Unit Tests') {
             steps {
                 echo '🧪 Running Backend Unit Tests'
-                dir('backend/todoapp') {
-                    bat 'mvn clean test'
-                }
+                bat 'cd backend\\todoapp && mvn clean test'
             }
             post {
                 always {
@@ -91,18 +89,16 @@ pipeline {
         stage('Backend: SonarQube Analysis') {
             steps {
                 echo '🔍 Running SonarQube Analysis for Backend'
-                dir('backend/todoapp') {
-                    withSonarQubeEnv('SonarQube') {
-                        bat """
-                            mvn sonar:sonar ^
-                            -Dsonar.projectKey=todo-backend ^
-                            -Dsonar.projectName="Todo Backend" ^
-                            -Dsonar.host.url=%SONAR_HOST_URL% ^
-                            -Dsonar.token=%SONAR_TOKEN% ^
-                            -Dsonar.java.binaries=target/classes ^
-                            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
-                        """
-                    }
+                withSonarQubeEnv('SonarQube') {
+                    bat """
+                        cd backend\\todoapp && mvn sonar:sonar ^
+                        -Dsonar.projectKey=todo-backend ^
+                        -Dsonar.projectName="Todo Backend" ^
+                        -Dsonar.host.url=%SONAR_HOST_URL% ^
+                        -Dsonar.token=%SONAR_TOKEN% ^
+                        -Dsonar.java.binaries=target/classes ^
+                        -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+                    """
                 }
             }
         }
@@ -136,9 +132,7 @@ pipeline {
         stage('Build Backend Artifact') {
             steps {
                 echo '🔨 Building Backend JAR'
-                dir('backend/todoapp') {
-                    bat 'mvn clean package -DskipTests'
-                }
+                bat 'cd backend\\todoapp && mvn clean package -DskipTests'
             }
         }
 
