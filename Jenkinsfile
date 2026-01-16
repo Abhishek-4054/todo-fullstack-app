@@ -101,16 +101,10 @@ pipeline {
         stage('Update K8s Manifests') {
             steps {
                 dir('k8s') {
+                    // Removed PowerShell backticks to prevent Batch parser errors
                     bat """
-                        powershell -Command "(Get-Content backend-deployment.yaml) `
-                        -replace 'image: ${BACKEND_IMAGE}:.*', `
-                        'image: ${BACKEND_IMAGE}:${IMAGE_TAG}' | `
-                        Set-Content backend-deployment.yaml"
-
-                        powershell -Command "(Get-Content frontend-deployment.yaml) `
-                        -replace 'image: ${FRONTEND_IMAGE}:.*', `
-                        'image: ${FRONTEND_IMAGE}:${IMAGE_TAG}' | `
-                        Set-Content frontend-deployment.yaml"
+                        powershell -Command "(Get-Content backend-deployment.yaml) -replace 'image: ${BACKEND_IMAGE}:.*', 'image: ${BACKEND_IMAGE}:${IMAGE_TAG}' | Set-Content backend-deployment.yaml"
+                        powershell -Command "(Get-Content frontend-deployment.yaml) -replace 'image: ${FRONTEND_IMAGE}:.*', 'image: ${FRONTEND_IMAGE}:${IMAGE_TAG}' | Set-Content frontend-deployment.yaml"
                     """
                 }
             }
