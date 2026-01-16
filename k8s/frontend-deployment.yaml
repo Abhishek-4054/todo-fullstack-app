@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: abhishekc4054/todo-frontend:18
+        image: abhishekc4054/todo-frontend:20
         ports:
         - containerPort: 80
         env:
