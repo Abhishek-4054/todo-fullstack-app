@@ -25,7 +25,7 @@ pipeline {
         ARGOCD_APP_NAME = 'todo-fullstack-app'
         GIT_REPO_URL = 'https://github.com/Abhishek-4054/todo-fullstack-app.git'
 
-        // Direct path to the renamed .exe file
+        // Direct path to the .exe Application
         ARGOCD_PATH = 'C:\\tools\\argocd\\argocd.exe'
     }
 
@@ -33,9 +33,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 echo '📥 Checking out source code...'
-                git branch: 'main',
-                    credentialsId: 'github-credentials',
-                    url: "${GIT_REPO_URL}"
+                git branch: 'main', credentialsId: 'github-credentials', url: "${GIT_REPO_URL}"
             }
         }
 
@@ -48,11 +46,7 @@ pipeline {
             post {
                 always {
                     junit '**/target/surefire-reports/*.xml'
-                    jacoco(
-                        execPattern: '**/target/jacoco.exec',
-                        classPattern: '**/target/classes',
-                        sourcePattern: '**/src/main/java'
-                    )
+                    jacoco(execPattern: '**/target/jacoco.exec', classPattern: '**/target/classes', sourcePattern: '**/src/main/java')
                 }
             }
         }
@@ -60,10 +54,7 @@ pipeline {
         stage('Frontend: Tests') {
             steps {
                 dir('frontend') {
-                    bat '''
-                        npm install
-                        npm run test:ci || echo "Frontend tests skipped"
-                    '''
+                    bat 'npm install && npm run test:ci || echo "Frontend tests skipped"'
                 }
             }
         }
@@ -72,11 +63,7 @@ pipeline {
             steps {
                 dir('backend/todoapp') {
                     withSonarQubeEnv('SonarQube') {
-                        bat """
-                            mvn sonar:sonar ^
-                            -Dsonar.projectKey=todo-backend ^
-                            -Dsonar.token=%SONAR_TOKEN%
-                        """
+                        bat "mvn sonar:sonar -Dsonar.projectKey=todo-backend -Dsonar.token=%SONAR_TOKEN%"
                     }
                 }
             }
@@ -86,12 +73,7 @@ pipeline {
             steps {
                 bat "docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} backend/todoapp"
                 bat "docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} frontend"
-
-                bat """
-                    echo %DOCKERHUB_CREDENTIALS_PSW% | docker login ^
-                    -u %DOCKERHUB_CREDENTIALS_USR% --password-stdin
-                """
-
+                bat "echo %DOCKERHUB_CREDENTIALS_PSW% | docker login -u %DOCKERHUB_CREDENTIALS_USR% --password-stdin"
                 bat "docker push ${BACKEND_IMAGE}:${IMAGE_TAG}"
                 bat "docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}"
             }
@@ -110,13 +92,7 @@ pipeline {
 
         stage('Commit & Push K8s Manifests') {
             steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'github-credentials', 
-                        usernameVariable: 'GIT_USER', 
-                        passwordVariable: 'GIT_PASS'
-                    )
-                ]) {
+                withCredentials([usernamePassword(credentialsId: 'github-credentials', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
                     bat """
                         git config user.email "jenkins@ci.com"
                         git config user.name "Jenkins CI"
@@ -130,14 +106,11 @@ pipeline {
 
         stage('ArgoCD Sync') {
             steps {
-                echo '🚀 Logging into ArgoCD and syncing application...'
+                echo '🚀 Syncing application via ArgoCD...'
                 withCredentials([string(credentialsId: 'argocd-token', variable: 'ARGOCD_TOKEN')]) {
                     bat """
                         @echo off
-                        "%ARGOCD_PATH%" login ${ARGOCD_SERVER} ^
-                          --auth-token %ARGOCD_TOKEN% ^
-                          --insecure
-
+                        "%ARGOCD_PATH%" login ${ARGOCD_SERVER} --auth-token %ARGOCD_TOKEN% --insecure
                         "%ARGOCD_PATH%" app sync ${ARGOCD_APP_NAME} --insecure
                     """
                 }
@@ -146,7 +119,6 @@ pipeline {
 
         stage('Verify Deployment Status') {
             steps {
-                echo '📊 Verifying Kubernetes rollout...'
                 bat """
                     kubectl rollout status deployment/todo-backend -n ${K8S_NAMESPACE} --timeout=300s
                     kubectl rollout status deployment/todo-frontend -n ${K8S_NAMESPACE} --timeout=300s
@@ -155,24 +127,12 @@ pipeline {
         }
 
         stage('Cleanup') {
-            steps {
-                echo '🧹 Cleaning up Docker credentials'
-                bat "docker logout"
-            }
+            steps { bat "docker logout" }
         }
     }
 
     post {
-        success {
-            echo '✅✅✅ PIPELINE SUCCESS ✅✅✅'
-            echo '🎉 Application deployed via ArgoCD'
-            echo '🌐 Frontend URL: http://localhost:30080'
-        }
-        failure {
-            echo '❌❌❌ PIPELINE FAILED ❌❌❌'
-        }
-        always {
-            echo "📊 Build #${BUILD_NUMBER} completed"
-        }
+        success { echo '✅ Pipeline Success! App: http://localhost:30080' }
+        failure { echo '❌ Pipeline Failed' }
     }
 }
