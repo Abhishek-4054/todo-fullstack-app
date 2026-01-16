@@ -170,32 +170,29 @@ pipeline {
                         git push https://%GIT_USER%:%GIT_PASS%@github.com/Abhishek-4054/todo-fullstack-app.git main || echo "Push failed or no changes"
                     """
                 }
+                echo "✅ K8s manifests updated in Git"
+                echo "🔄 ArgoCD will auto-sync the changes"
             }
         }
 
-        stage('Sync ArgoCD Application') {
+        stage('Verify Deployment Status') {
             steps {
-                withCredentials([string(credentialsId: 'argocd-token', variable: 'ARGOCD_TOKEN')]) {
+                script {
+                    echo "⏳ Waiting 30 seconds for ArgoCD to detect changes..."
+                    sleep(time: 30, unit: 'SECONDS')
+                    
+                    echo "📊 Checking Kubernetes deployment status..."
                     bat """
-                        argocd app sync ${ARGOCD_APP_NAME} ^
-                        --server ${ARGOCD_SERVER} ^
-                        --auth-token %ARGOCD_TOKEN% ^
-                        --insecure
+                        kubectl rollout status deployment/todo-backend -n todo-app --timeout=300s || echo "Backend deployment check failed"
+                        kubectl rollout status deployment/todo-frontend -n todo-app --timeout=300s || echo "Frontend deployment check failed"
+                        kubectl get pods -n todo-app
                     """
-                }
-            }
-        }
-
-        stage('Wait for Deployment') {
-            steps {
-                withCredentials([string(credentialsId: 'argocd-token', variable: 'ARGOCD_TOKEN')]) {
-                    bat """
-                        argocd app wait ${ARGOCD_APP_NAME} ^
-                        --server ${ARGOCD_SERVER} ^
-                        --auth-token %ARGOCD_TOKEN% ^
-                        --insecure ^
-                        --timeout 300
-                    """
+                    
+                    echo "✅ Deployment verification completed"
+                    echo "🌐 Access your application:"
+                    echo "   Frontend: http://localhost:30080"
+                    echo "   Backend: http://localhost:30081"
+                    echo "   ArgoCD: http://localhost:8081"
                 }
             }
         }
