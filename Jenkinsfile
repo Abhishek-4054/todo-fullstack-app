@@ -179,20 +179,12 @@ pipeline {
                 dir('k8s') {
                     // Update Backend Deployment
                     bat """
-                        powershell -NoProfile -Command ^
-                        "(Get-Content backend-deployment.yaml) ^
-                        -replace 'image: .*todo-backend:.*', ^
-                        'image: ${DOCKERHUB_USERNAME}/todo-backend:${IMAGE_TAG}' ^
-                        | Set-Content backend-deployment.yaml"
+                        powershell -NoProfile -Command "(Get-Content backend-deployment.yaml) -replace 'image: .*todo-backend:.*', 'image: ${DOCKERHUB_USERNAME}/todo-backend:${IMAGE_TAG}' | Set-Content backend-deployment.yaml"
                     """
 
                     // Update Frontend Deployment
                     bat """
-                        powershell -NoProfile -Command ^
-                        "(Get-Content frontend-deployment.yaml) ^
-                        -replace 'image: .*todo-frontend:.*', ^
-                        'image: ${DOCKERHUB_USERNAME}/todo-frontend:${IMAGE_TAG}' ^
-                        | Set-Content frontend-deployment.yaml"
+                        powershell -NoProfile -Command "(Get-Content frontend-deployment.yaml) -replace 'image: .*todo-frontend:.*', 'image: ${DOCKERHUB_USERNAME}/todo-frontend:${IMAGE_TAG}' | Set-Content frontend-deployment.yaml"
                     """
                 }
             }
