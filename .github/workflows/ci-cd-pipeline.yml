@@ -133,14 +133,14 @@ jobs:
         run: |
           aws ecs update-service \
             --cluster todo-app-cluster \
-            --service todo-backend-task-service-g6iafh1g \
+            --service todo-backend-task-service-llwsijuz \
             --force-new-deployment
 
       - name: Deploy Frontend
         run: |
           aws ecs update-service \
             --cluster todo-app-cluster \
-            --service todo-frontend-task-service-rh0ol1y9 \
+            --service todo-frontend-task-service-y4qn6w8q \
             --force-new-deployment
 
       - name: Wait Backend Stable
