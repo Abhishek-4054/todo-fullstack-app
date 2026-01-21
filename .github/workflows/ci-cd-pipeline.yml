@@ -147,13 +147,13 @@ jobs:
         run: |
           aws ecs wait services-stable \
             --cluster todo-app-cluster \
-            --services todo-backend-task-service-g6iafh1g
+            --services todo-backend-task-service-llwsijuz
 
       - name: Wait Frontend Stable
         run: |
           aws ecs wait services-stable \
             --cluster todo-app-cluster \
-            --services todo-frontend-task-service-rh0ol1y9
+            --services todo-frontend-task-service-y4qn6w8q
 
   deployment-summary:
     name: Summary
