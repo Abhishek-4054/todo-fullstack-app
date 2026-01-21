@@ -177,11 +177,22 @@ pipeline {
             steps {
                 echo '📝 Updating Kubernetes manifests with new image tags'
                 dir('k8s') {
+                    // Update Backend Deployment
                     bat """
-                        powershell -NoProfile -Command "(Get-Content backend-deployment.yaml) -replace 'image: .*todo-backend:.*', 'image: ${DOCKERHUB_USERNAME}/todo-backend:${IMAGE_TAG}' | Set-Content backend-deployment.yaml"
+                        powershell -NoProfile -Command ^
+                        "(Get-Content backend-deployment.yaml) ^
+                        -replace 'image: .*todo-backend:.*', ^
+                        'image: ${DOCKERHUB_USERNAME}/todo-backend:${IMAGE_TAG}' ^
+                        | Set-Content backend-deployment.yaml"
                     """
+
+                    // Update Frontend Deployment
                     bat """
-                        powershell -NoProfile -Command "(Get-Content frontend-deployment.yaml) -replace 'image: .*todo-frontend:.*', 'image: ${DOCKERHUB_USERNAME}/todo-frontend:${IMAGE_TAG}' | Set-Content frontend-deployment.yaml"
+                        powershell -NoProfile -Command ^
+                        "(Get-Content frontend-deployment.yaml) ^
+                        -replace 'image: .*todo-frontend:.*', ^
+                        'image: ${DOCKERHUB_USERNAME}/todo-frontend:${IMAGE_TAG}' ^
+                        | Set-Content frontend-deployment.yaml"
                     """
                 }
             }
@@ -219,49 +230,25 @@ pipeline {
             steps {
                 echo '📊 Verifying Kubernetes deployment rollout status'
                 
-                script {
-                    try {
-                        withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
-                            bat """
-                                set KUBECONFIG=%KUBECONFIG%
-                                kubectl rollout status deployment/todo-backend -n ${K8S_NAMESPACE} --timeout=300s
-                            """
-                            bat """
-                                set KUBECONFIG=%KUBECONFIG%
-                                kubectl rollout status deployment/todo-frontend -n ${K8S_NAMESPACE} --timeout=300s
-                            """
-                        }
-                    } catch (Exception e) {
-                        bat """
-                            kubectl rollout status deployment/todo-backend -n ${K8S_NAMESPACE} --timeout=300s
-                        """
-                        bat """
-                            kubectl rollout status deployment/todo-frontend -n ${K8S_NAMESPACE} --timeout=300s
-                        """
-                    }
-                }
+                bat """
+                    kubectl rollout status deployment/todo-backend ^
+                    -n ${K8S_NAMESPACE} --timeout=300s
+                """
+
+                bat """
+                    kubectl rollout status deployment/todo-frontend ^
+                    -n ${K8S_NAMESPACE} --timeout=300s
+                """
             }
         }
 
         stage('Health Check') {
             steps {
                 echo '🏥 Running post-deployment health checks'
-                script {
-                    try {
-                        withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
-                            bat """
-                                set KUBECONFIG=%KUBECONFIG%
-                                kubectl get pods -n ${K8S_NAMESPACE}
-                                kubectl get services -n ${K8S_NAMESPACE}
-                            """
-                        }
-                    } catch (Exception e) {
-                        bat """
-                            kubectl get pods -n ${K8S_NAMESPACE}
-                            kubectl get services -n ${K8S_NAMESPACE}
-                        """
-                    }
-                }
+                bat """
+                    kubectl get pods -n ${K8S_NAMESPACE}
+                    kubectl get services -n ${K8S_NAMESPACE}
+                """
             }
         }
 
