@@ -133,27 +133,27 @@ jobs:
         run: |
           aws ecs update-service \
             --cluster todo-app-cluster \
-            --service todo-backend-task-service-mileitbb \
+            --service todo-backend-task-service-0rsyteu5 \
             --force-new-deployment
 
       - name: Deploy Frontend
         run: |
           aws ecs update-service \
             --cluster todo-app-cluster \
-            --service todo-frontend-task-service-gkh1mkst \
+            --service todo-frontend-task-service-gjosc5uz \
             --force-new-deployment
 
       - name: Wait Backend Stable
         run: |
           aws ecs wait services-stable \
             --cluster todo-app-cluster \
-            --services todo-backend-task-service-mileitbb
+            --services todo-backend-task-service-0rsyteu5
 
       - name: Wait Frontend Stable
         run: |
           aws ecs wait services-stable \
             --cluster todo-app-cluster \
-            --services todo-frontend-task-service-gkh1mkst
+            --services todo-frontend-task-service-gjosc5uz
 
   deployment-summary:
     name: Summary
